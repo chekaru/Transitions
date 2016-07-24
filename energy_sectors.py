@@ -10,7 +10,7 @@ class RenewableEnergySector:
     @classmethod
     def profits(cls, capital, energy_price, params):
         """Renewable energy sector profits."""
-        pi = (cls.revenue(capital, energy_price, params)
+        pi = (cls.revenue(capital, energy_price, params) -
               cls.total_costs(capital, params))
         return pi
 
@@ -41,7 +41,7 @@ class RenewableEnergySector:
 
         """
         relative_price = cls.subsidy(energy_price, params) / params['gross_interest_rate']
-        demand = (alpha * tfp * relative_price**(1 - alpha)
+        demand = alpha * tfp * relative_price**(1 - alpha)
         assert demand > 0, "Renewable energy sector capital demand of {} is not positive!".format(demand)
         return demand
 
@@ -131,7 +131,7 @@ class NonRenewableEnergySector:
     def net_value_marginal_product_capital(cls, capital, previous_capital, fossil_fuel, energy_price, params):
         """Value marginal product of capital less marginal costs of capital."""
         nvmp = (cls.value_marginal_product_capital(capital, fossil_fuel, energy_price, params) -
-                cls.marginal_cost_capital(capital, previous_capital, params)
+                cls.marginal_cost_capital(capital, previous_capital, params))
         return nvmp
 
     @classmethod
