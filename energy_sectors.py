@@ -10,7 +10,7 @@ class RenewableEnergySector:
     @classmethod
     def profits(cls, capital, energy_price, params):
         """Renewable energy sector profits."""
-        pi = (cls.revenue(capital, energy_price, params)
+        pi = (cls.revenue(capital, energy_price, params) -
               cls.total_costs(capital, params))
         return pi
 
@@ -41,7 +41,7 @@ class RenewableEnergySector:
 
         """
         relative_price = cls.subsidy(energy_price, params) / params['gross_interest_rate']
-        demand = (alpha * tfp * relative_price**(1 - alpha)
+        demand = (params['alpha'] * params['tfp'] * relative_price**(1 - params['alpha']))
         assert demand > 0, "Renewable energy sector capital demand of {} is not positive!".format(demand)
         return demand
 
@@ -51,7 +51,7 @@ class NonRenewableEnergySector:
     @staticmethod
     def output(capital, fossil_fuel, params):
         """Non-renewable energy output."""
-        energy = params['tfp'] * capital**beta * fossil_fuel**(1 - params['beta'])
+        energy = params['tfp'] * capital**params['beta'] * fossil_fuel**(1 - params['beta'])
         assert energy > 0, "Non-renewable energy output of {} is not positive!".format(energy)
         return energy
 
@@ -98,7 +98,6 @@ class NonRenewableEnergySector:
         """Costs of adjusting stock of physical capital."""
         mc = (params['gross_interest_rate'] +
               cls.marginal_capital_adjustment_costs(capital, previous_capital, params))
-        assert mc > 0, "Non-renewable energy sector marginal cost of capital of {} is not positive!".format(mc)
         return mc
 
     @staticmethod
@@ -131,7 +130,7 @@ class NonRenewableEnergySector:
     def net_value_marginal_product_capital(cls, capital, previous_capital, fossil_fuel, energy_price, params):
         """Value marginal product of capital less marginal costs of capital."""
         nvmp = (cls.value_marginal_product_capital(capital, fossil_fuel, energy_price, params) -
-                cls.marginal_cost_capital(capital, previous_capital, params)
+                cls.marginal_cost_capital(capital, previous_capital, params))
         return nvmp
 
     @classmethod
@@ -143,9 +142,9 @@ class NonRenewableEnergySector:
         return demand
 
     @staticmethod
-    def fossil_fuel_demand(capital, beta, energy_price, params):
+    def fossil_fuel_demand(capital, energy_price, params):
         """Non-renewable energy sector demand for fossil fuels."""
         relative_price = energy_price / params['fossil_fuel_price']
-        demand = (params['tfp'] * (1 - params['beta']) * relative_price)**(1 / beta) * capital
+        demand = (params['tfp'] * (1 - params['beta']) * relative_price)**(1 / params['beta']) * capital
         assert demand > 0, "Non-renewable energy sector fossil fuel demand of {} is not positive!".format(demand)
         return demand

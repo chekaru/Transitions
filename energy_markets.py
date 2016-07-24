@@ -14,7 +14,7 @@ class EnergyMarket:
 
     @staticmethod
     def _aggregate_demand(price, params):
-        return Consumer.demand(price, **params)
+        return Consumer.demand(price, params)
 
     @classmethod
     def _aggregate_supply(cls, price, non_renewable_capital, non_renewable_params, renewable_params):
@@ -31,7 +31,7 @@ class EnergyMarket:
     @staticmethod
     def _non_renewable_sector_supply(price, capital, params):
         fossil_fuel = NonRenewableEnergySector.fossil_fuel_demand(capital, price, params)
-        return NonRenewableEnergySector.output(capital, fossil_fuel, **params)
+        return NonRenewableEnergySector.output(capital, fossil_fuel, params)
 
     @classmethod
     def _excess_demand(cls, price, non_renewable_capital, consumer_params, non_renewable_params, renewable_params):
