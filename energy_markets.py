@@ -9,7 +9,7 @@ class EnergyMarket:
     def find_market_price(cls, non_renewable_capital, consumer_params, non_renewable_params, renewable_params):
         """Use root finding algorith to determine the market price."""
         args = (non_renewable_capital, consumer_params, non_renewable_params, renewable_params)
-        price, results = optimize.brentq(cls._excess_demand, 1e-6, 1e6, args, full_output=True)
+        price, results = optimize.brentq(cls._excess_demand, 1e-12, 1e12, args, full_output=True)
         return price if results.converged else results
 
     @staticmethod
@@ -25,12 +25,12 @@ class EnergyMarket:
 
     @staticmethod
     def _renewable_sector_supply(price, params):
-        capital = RenewableEnergySector.capital_demand(energy_price=price, **params)
-        return RenewableEnergySector.output(capital, **params)
+        capital = RenewableEnergySector.capital_demand(price, params)
+        return RenewableEnergySector.output(capital, params)
 
     @staticmethod
     def _non_renewable_sector_supply(price, capital, params):
-        fossil_fuel = NonRenewableEnergySector.fossil_fuel_demand(capital, energy_price=price, **params)
+        fossil_fuel = NonRenewableEnergySector.fossil_fuel_demand(capital, price, params)
         return NonRenewableEnergySector.output(capital, fossil_fuel, **params)
 
     @classmethod

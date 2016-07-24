@@ -1,6 +1,6 @@
 class Consumer:
 
     @staticmethod
-    def demand(energy_price, energy_quantity, **params):
+    def demand(energy_price, params):
         """For now just assume inelastic demand for energy."""
-        return energy_quantity
+        return params['energy_quantity']
