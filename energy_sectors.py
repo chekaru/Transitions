@@ -48,10 +48,10 @@ class RenewableEnergySector:
 
 class NonRenewableEnergySector:
 
-    @staticmethod
-    def output(capital, fossil_fuel, alpha, beta, gamma, sigma=1, **params):
+    @classmethod
+    def output(cls, capital, fossil_fuel, tfp, alpha, beta, gamma, sigma, **params):
         """
-        Non-renewable sector sector energy output.
+        Non-renewable sector energy output.
 
         Notes
         -----
@@ -59,8 +59,7 @@ class NonRenewableEnergySector:
         substitution (CES) functional form.
 
         """
-        rho = (sigma - 1) / sigma
-        if (rho == 0) and (alpha + beta == gamma):
+        if cls._is_cobb_douglas(alpha, beta, gamma, sigma):
             energy = tfp * K**alpha * F**beta
         else:
             energy = tfp * (alpha * K**rho + beta * F**rho)**(gamma / rho)
@@ -125,13 +124,6 @@ class NonRenewableEnergySector:
         return ratio
 
     @classmethod
-    def marginal_product_capital(cls, capital, fossil_fuel, energy_price, params):
-        """Marginal product of installed capital."""
-        mp = params['beta'] / cls.capital_output_ratio(capital, fossil_fuel, params)
-        assert mp > 0, "Non-renewable energy sector marginal product of capital of {} is not positive!".format(mp)
-        return mp
-
-    @classmethod
     def value_marginal_product_capital(cls, capital, fossil_fuel, energy_price, params):
         """Contribution to firm revenue of the marginal unit of installed capital."""
         vmp = energy_price * cls.marginal_product_capital(capital, fossil_fuel, energy_price, params)
@@ -160,3 +152,20 @@ class NonRenewableEnergySector:
         demand = (params['tfp'] * (1 - params['beta']) * relative_price)**(1 / params['beta']) * capital
         assert demand > 0, "Non-renewable energy sector fossil fuel demand of {} is not positive!".format(demand)
         return demand
+
+    @staticmethod
+    def _is_cobb_douglas(alpha, beta, gamma, sigma, **params):
+        """Check whether parameters imply Cobb-Douglas functional form."""
+        rho = (sigma - 1) / sigma
+        return (rho == 0) and (alpha + beta == gamma)
+
+    @classmethod
+    def _marginal_product_capital(cls, capital, fossil_fuel, tfp, alpha, beta,
+                                  gamma, sigma):
+        """Non-renewable sector marginal product of capital."""
+        if cls._is_cobb_douglas(alpha, beta, gamma, sigma):
+            mpk = tfp * alpha * K**(alpha - 1) * F**beta
+        else:
+            mpk = tfp * alpha * gamma * K**(rho - 1) * (alpha * K**rho + beta * F**rho)**((gamma / rho) - 1)
+        assert mpk > 0, "Marginal product of capital is not positive!"
+        return mpk
