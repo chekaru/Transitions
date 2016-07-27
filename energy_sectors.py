@@ -49,9 +49,21 @@ class RenewableEnergySector:
 class NonRenewableEnergySector:
 
     @staticmethod
-    def output(capital, fossil_fuel, params):
-        """Non-renewable energy output."""
-        energy = params['tfp'] * capital**params['beta'] * fossil_fuel**(1 - params['beta'])
+    def output(capital, fossil_fuel, alpha, beta, gamma, sigma=1, **params):
+        """
+        Non-renewable sector sector energy output.
+
+        Notes
+        -----
+        Sector uses a generalized version of the constant elasticity of
+        substitution (CES) functional form.
+
+        """
+        rho = (sigma - 1) / sigma
+        if (rho == 0) and (alpha + beta == gamma):
+            energy = tfp * K**alpha * F**beta
+        else:
+            energy = tfp * (alpha * K**rho + beta * F**rho)**(gamma / rho)
         assert energy > 0, "Non-renewable energy output of {} is not positive!".format(energy)
         return energy
 
