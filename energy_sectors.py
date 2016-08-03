@@ -112,6 +112,9 @@ class NonRenewableEnergySector:
         if self._is_cobb_douglas:
             demand = (self._tfp * self._beta / relative_price)**(1 / (1 - self._beta)) * capital**(self._alpha / (1 - self._beta))
         else:
+            args = (capital, capital_price, fossil_fuel_price)
+            price, results = optimize.brentq(self._excess_demand, 1e-12, 1e12, args,
+                                             full_output=True)
             raise NotImplementedError  # need to use fsolve on FOC!
         return demand
 
@@ -170,4 +173,9 @@ class NonRenewableEnergySector:
     def _value_marginal_product_capital(self, capital, energy_price, fossil_fuel_price):
         """Non-renewable sector value marginal product of capital."""
         vmp = energy_price * self._marginal_product_capital(capital, energy_price, fossil_fuel_price)
+        return vmp
+
+    def _value_marginal_product_fossil_fuel(self, capital, energy_price, fossil_fuel_price):
+        """Non-renewable sector value marginal product of capital."""
+        vmp = energy_price * self._marginal_product_fossil_fuel(capital, energy_price, fossil_fuel_price)
         return vmp

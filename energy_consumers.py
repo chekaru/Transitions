@@ -1,6 +1,5 @@
 class EnergyConsumer:
 
-
     def __init__(self, quantity_demand):
         self._quantity_demand = quantity_demand
 
