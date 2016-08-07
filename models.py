@@ -120,9 +120,8 @@ class TransitionDynamicsModel:
         equilibrium_capital = optimize.brentq(locus, min_capital, max_capital)
         return equilibrium_capital
 
-    def solve(self, t0, T, num, initial_capital):
-        self._initial_energy_price = self._compute_energy_price(self.equilibrium[1])
-        return self._solve_reverse_shooting(t0, T, num, initial_capital)
+    def solve(self, t0, K0, dt, integrator, **solver_kwargs):
+        return self._solve_reverse_shooting(t0, K0, dt, integrator, **solver_kwargs)
 
     def _compute_non_renewable_sector_costs(self, q, capital, energy_price):
         prices = (self._capital_price, energy_price, self._fossil_fuel_price)
@@ -164,14 +163,33 @@ class TransitionDynamicsModel:
         energy_price = self._compute_energy_price(capital)
         return [self._q_dot(q, capital, energy_price), self._capital_dot(q, capital)]
 
-    def _solve_reverse_shooting(self, t0, T, num, initial_capital):
+    def _solve_reverse_shooting(self, t0, K0, dt, integrator, **solver_kwargs):
 
-        eps = 1e-12
-        step = np.array([eps, -eps]) if initial_capital <= self.equilibrium[1] else np.array([-eps, eps])
+        # compute initial step size
+        eps = 1e-15
+        step = np.array([0, -eps]) if K0 <= self.equilibrium[1] else np.array([0, eps])
         initial_condition = (1 + step) * self.equilibrium
 
-        ts = np.linspace(t0, T, num)
-        rhs = lambda X, t: -1 * np.array(self._rhs(t, X[0], X[1]))
-        solution = integrate.odeint(rhs, y0=initial_condition, t=ts)
+        # set up the integrator
+        f = lambda t, X: -1 * np.array(self._rhs(t, X[0], X[1]))
+        _ode = integrate.ode(f)
+        _ode.set_integrator(integrator, **solver_kwargs)
+        _ode.set_initial_value(initial_condition, t0)
+
+        ts = np.array([t0])
+        solution = initial_condition
+
+        if K0 <= self.equilibrium[1]:
+
+            while _ode.successful() and _ode.y[1] >= K0:
+                ts = np.append(ts, _ode.t+dt)
+                _ode.integrate(_ode.t+dt)
+                solution = np.vstack((solution, _ode.y))
+        else:
+
+            while _ode.successful() and _ode.y[1] <= K0:
+                ts = np.append(ts, _ode.t+dt)
+                _ode.integrate(_ode.t+dt)
+                solution = np.vstack((solution, _ode.y))
 
         return ts, solution[::-1, :]
