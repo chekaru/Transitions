@@ -1,6 +1,8 @@
-class Consumer:
+class EnergyConsumer:
 
-    @staticmethod
-    def demand(energy_price, params):
+    def __init__(self, quantity_demand):
+        self._quantity_demand = quantity_demand
+
+    def demand(self, energy_price):
         """For now just assume inelastic demand for energy."""
-        return params['energy_quantity']
+        return self._quantity_demand

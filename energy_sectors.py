@@ -1,150 +1,181 @@
+from scipy import optimize
+
+
 class RenewableEnergySector:
 
-    @staticmethod
-    def output(capital, params):
-        """Renewable energy output."""
-        energy = params['tfp'] * capital**params['alpha']
-        assert energy > 0, "Renewable energy output of {} is not positive!".format(energy)
+    def __init__(self, tfp, alpha, delta, mu):
+        self._tfp = tfp
+        self._alpha = alpha
+        self._delta = delta
+        self._mu = mu
+
+    def output(self, capital_price, energy_price, interest_rate):
+        """Renewable energy sector output."""
+        capital = self._capital_demand(capital_price, energy_price, interest_rate)
+        energy = self._tfp * capital**self._alpha
         return energy
 
-    @classmethod
-    def profits(cls, capital, energy_price, params):
+    def profits(self, capital_price, energy_price, energy_price_growth, interest_rate):
         """Renewable energy sector profits."""
-        pi = (cls.revenue(capital, energy_price, params) -
-              cls.total_costs(capital, params))
+        pi = (self._revenue(capital_price, energy_price, interest_rate) -
+              self.costs(capital_price, energy_price, energy_price_growth, interest_rate))
         return pi
 
-    @classmethod
-    def revenue(cls, capital, energy_price, params):
-        """Renewable energy revenue."""
-        return cls.subsidy(energy_price, params) * cls.output(capital, params)
+    def subsidy(self, energy_price):
+        """Subsidized price of renewable energy."""
+        return (1 + self._mu) * energy_price
 
-    @staticmethod
-    def subsidy(energy_price, params):
-        """For now assume that subsidy is the energy price."""
-        return energy_price
-
-    @staticmethod
-    def total_costs(capital, params):
-        """Renewable energy production costs."""
-        return params['gross_interest_rate'] * capital
-
-    @classmethod
-    def capital_demand(cls, energy_price, params):
-        """
-        Renewable energy sector demand for physical capital.
-
-        Note
-        ----
-        The demand for physical capital is a function of the price of energy
-        (which may or may not be subsidized) and model parameters.
-
-        """
-        relative_price = cls.subsidy(energy_price, params) / params['gross_interest_rate']
-        demand = (params['alpha'] * params['tfp'] * relative_price**(1 - params['alpha']))
-        assert demand > 0, "Renewable energy sector capital demand of {} is not positive!".format(demand)
+    def _capital_demand(self, capital_price, energy_price, interest_rate):
+        """Renewable energy sector demand for capital."""
+        relative_price = capital_price / self.subsidy(energy_price)
+        demand = ((self._alpha * self._tfp / (interest_rate + self._delta)) * (1 / relative_price))**(1 / (1 - self._alpha))
         return demand
+
+    def costs(self, capital_price, energy_price, energy_price_growth, interest_rate):
+        """Renewable energy production costs."""
+        capital = self._capital_demand(capital_price, energy_price, interest_rate)
+        return ((1 / (1 - self._alpha)) * (energy_price_growth) + self._delta) * capital
+
+    def _revenue(self, capital_price, energy_price, interest_rate):
+        """Renewable energy revenue."""
+        return self.subsidy(energy_price) * self.output(capital_price, energy_price, interest_rate)
 
 
 class NonRenewableEnergySector:
 
-    @staticmethod
-    def output(capital, fossil_fuel, params):
-        """Non-renewable energy output."""
-        energy = params['tfp'] * capital**params['beta'] * fossil_fuel**(1 - params['beta'])
-        assert energy > 0, "Non-renewable energy output of {} is not positive!".format(energy)
+    def __init__(self, tfp, alpha, beta, gamma, delta, phi, sigma):
+        self._tfp = tfp
+        self._alpha = alpha
+        self._beta = beta
+        self._gamma = gamma
+        self._delta = delta
+        self._phi = phi
+        self._rho = (sigma - 1) / sigma
+        self._sigma = sigma
+
+    def equation_motion_capital(self, q, capital):
+        """Differential equation describing the time evolution of capital."""
+        K_dot = self._investment_demand(q, capital) - self._delta * capital
+        return K_dot
+
+    def equation_motion_q(self, q, capital, capital_price, energy_price, fossil_fuel_price, interest_rate):
+        """Differential equation describing the time evolution of Tobin's q."""
+        I = self._investment_demand(q, capital)
+        q_dot = ((interest_rate + self._delta) * q +
+                 self._marginal_percentage_adjustment_costs(capital, I) * I -
+                 self._value_marginal_product_capital(capital, energy_price, fossil_fuel_price) / capital_price)
+        return q_dot
+
+    @property
+    def equilibrium_q(self):
+        """Equilibrium value for Tobin's q."""
+        return 1 + (3 / 2) * self._delta**2 * self._phi
+
+    def output(self, capital, energy_price, fossil_fuel_price):
+        """Non-renewable sector energy output."""
+        F = self._fossil_fuel_demand(capital, energy_price, fossil_fuel_price)
+        if self._is_cobb_douglas:
+            energy = self._tfp * capital**self._alpha * F**self._beta
+        elif (self._rho == 0):
+            energy = self._tfp * (capital**self._alpha * F**self._beta)**self._gamma
+        else:
+            energy = self._tfp * (self._alpha * capital**self._rho + self._beta * F**self._rho)**(self._gamma / self._rho)
         return energy
 
-    @classmethod
-    def profits(cls, capital, previous_capital, fossil_fuel, energy_price, params):
-        """Profits are difference between revenue and costs."""
-        pi = (cls.revenue(capital, fossil_fuel, energy_price, params) -
-              cls.total_costs(capital, previous_capital, fossil_fuel, params))
+    def profits(self, q, capital, capital_price, energy_price, fossil_fuel_price):
+        """Non-renewable sector profits."""
+        pi = (self._revenue(capital, energy_price, fossil_fuel_price) -
+              self.costs(q, capital, capital_price, energy_price, fossil_fuel_price))
         return pi
 
-    @classmethod
-    def revenue(cls, capital, fossil_fuel, energy_price, params):
-        """Renewable energy revenue."""
-        return energy_price * cls.output(capital, fossil_fuel, params)
-
-    @classmethod
-    def total_costs(cls, capital, previous_capital, fossil_fuel, params):
-        """Total costs of producing energy from fossil fuels."""
-        costs = (cls.total_cost_capital(capital, previous_capital, params) +
-                 cls.total_cost_fossil_fuel(fossil_fuel, params))
-        assert costs > 0, "Non-renewable energy sector total costs of {} are not positive!".format(costs)
+    def costs(self, q, capital, capital_price, energy_price, fossil_fuel_price):
+        """Non-renewable sector production costs."""
+        costs = (self._cost_capital(q, capital, capital_price) +
+                 self._cost_fossil_fuel(capital, energy_price, fossil_fuel_price))
         return costs
 
-    @classmethod
-    def total_cost_capital(cls, capital, previous_capital, params):
+    def _cost_capital(self, q, capital, capital_price):
         """Total costs of capital for use in producing energy from fossil fuels."""
-        costs = (params['gross_interest_rate'] * capital +
-                 cls.capital_adjustment_costs(capital, previous_capital, params))
-        assert costs > 0, "Non-renewable energy sector total costs of capital ]{} are not positive!".format(costs)
+        I = self._investment_demand(q, capital)
+        costs = capital_price * (1 + self._percentage_adjustment_costs(capital, I)) * I
         return costs
 
-    @classmethod
-    def total_cost_fossil_fuel(cls, fossil_fuel, params):
-        """Total costs of purchasing fossil fuel for use in energy production."""
-        return params['fossil_fuel_price'] * fossil_fuel
+    def _cost_fossil_fuel(self, capital, energy_price, fossil_fuel_price):
+        """Non-renewable sector production costs from fossil fuels."""
+        F = self._fossil_fuel_demand(capital, energy_price, fossil_fuel_price)
+        costs = fossil_fuel_price * F
+        return costs
 
-    @staticmethod
-    def capital_adjustment_costs(capital, previous_capital, params):
-        """Convex capital adjustment cost function."""
-        return (params['phi'] / 2) * (capital - previous_capital)**2
+    def _fossil_fuel_demand(self, capital, energy_price, fossil_fuel_price):
+        """Non-renewable energy sector demand for fossil fuels."""
+        relative_price = fossil_fuel_price / energy_price
+        if self._is_cobb_douglas:
+            demand = (self._tfp * self._beta / relative_price)**(1 / (1 - self._beta)) * capital**(self._alpha / (1 - self._beta))
+        else:
+            args = (capital, capital_price, fossil_fuel_price)
+            price, results = optimize.brentq(self._excess_demand, 1e-12, 1e12, args,
+                                             full_output=True)
+            raise NotImplementedError  # need to use fsolve on FOC!
+        return demand
 
-    @classmethod
-    def marginal_cost_capital(cls, capital, previous_capital, params):
-        """Costs of adjusting stock of physical capital."""
-        mc = (params['gross_interest_rate'] +
-              cls.marginal_capital_adjustment_costs(capital, previous_capital, params))
+    @property
+    def _is_cobb_douglas(self):
+        """Check whether parameters imply Cobb-Douglas functional form."""
+        return (self._rho == 0) and ((self._alpha + self._beta) == self._gamma)
+
+    def _investment_demand(self, q, capital):
+        """Non-renewable energy sector demand for investment."""
+        demand = ((2 / 3) * (q - 1) * (1 / self._phi))**0.5 * capital
+        return demand
+
+    def _marginal_percentage_adjustment_costs(self, capital, investment):
+        """Non-renewable sector marginal costs of capital."""
+        mc = -self._phi * (investment / capital)**2 * (1 / capital)
         return mc
 
-    @staticmethod
-    def marginal_capital_adjustment_costs(capital, previous_capital, params):
-        """Marginal costs of adjusting stock of capital."""
-        return params['phi'] * (capital - previous_capital)
+    def _marginal_product_capital(self, capital, energy_price, fossil_fuel_price):
+        """Non-renewable sector marginal product of capital."""
+        F = self._fossil_fuel_demand(capital, energy_price, fossil_fuel_price)
+        energy = self.output(capital, energy_price, fossil_fuel_price)
+        if self._is_cobb_douglas:
+            mpk = self._alpha * (energy / capital)
+        elif (self._rho == 0):
+            mpk = self._alpha * self._gamma * (energy / capital)
+        else:
+            capital_share = (self._alpha * self._gamma * capital**self._rho /
+                             (self._alpha * capital**self._rho + self._beta * F**rho))
+            mpk = capital_share * (energy / capital)
+        return mpk
 
-    @classmethod
-    def capital_output_ratio(cls, capital, fossil_fuel, params):
-        """Ratio of capital stock to output."""
-        ratio =  capital / cls.output(capital, fossil_fuel, params)
-        assert ratio > 0, "Non-renewable energy sector capital-output ratio of {} is not positive!".format(ratio)
-        return ratio
+    def _marginal_product_fossil_fuel(self, capital, energy_price, fossil_fuel_price):
+        """Non-renewable sector marginal product of fossil fuels."""
+        F = self._fossil_fuel_demand(capital, energy_price, fossil_fuel_price)
+        energy = self.output(capital, energy_price, fossil_fuel_price)
+        if self._is_cobb_douglas:
+            mpf = self._beta * (energy / F)
+        elif (self._rho == 0):
+            mpf = self._beta * self._gamma * (energy / F)
+        else:
+            fossil_fuel_share = ((self._beta * self._gamma * F**self._rho) /
+                                 (self._alpha * capital**self._rho + self._beta * F**self._rho))
+            mpf = fossil_fuel_share * (energy / fossil_fuel)
+        return mpf
 
-    @classmethod
-    def marginal_product_capital(cls, capital, fossil_fuel, energy_price, params):
-        """Marginal product of installed capital."""
-        mp = params['beta'] / cls.capital_output_ratio(capital, fossil_fuel, params)
-        assert mp > 0, "Non-renewable energy sector marginal product of capital of {} is not positive!".format(mp)
-        return mp
+    def _percentage_adjustment_costs(self, capital, investment):
+        """Convex capital adjustment cost function."""
+        costs = (self._phi / 2) * (investment / capital)**2
+        return costs
 
-    @classmethod
-    def value_marginal_product_capital(cls, capital, fossil_fuel, energy_price, params):
-        """Contribution to firm revenue of the marginal unit of installed capital."""
-        vmp = energy_price * cls.marginal_product_capital(capital, fossil_fuel, energy_price, params)
-        assert vmp > 0, "Non-renewable energy sector value marginal product of capital of {} is not positive!".format(vmp)
+    def _revenue(self, capital, energy_price, fossil_fuel_price):
+        """Non-renewable sector revenue."""
+        return energy_price * self.output(capital, energy_price, fossil_fuel_price)
+
+    def _value_marginal_product_capital(self, capital, energy_price, fossil_fuel_price):
+        """Non-renewable sector value marginal product of capital."""
+        vmp = energy_price * self._marginal_product_capital(capital, energy_price, fossil_fuel_price)
         return vmp
 
-    @classmethod
-    def net_value_marginal_product_capital(cls, capital, previous_capital, fossil_fuel, energy_price, params):
-        """Value marginal product of capital less marginal costs of capital."""
-        nvmp = (cls.value_marginal_product_capital(capital, fossil_fuel, energy_price, params) -
-                cls.marginal_cost_capital(capital, previous_capital, params))
-        return nvmp
-
-    @classmethod
-    def future_capital_demand(cls, capital, previous_capital, fossil_fuel, energy_price, params):
-        """Demand for capital is forward looking?"""
-        nvmp = cls.net_value_marginal_product_capital(capital, previous_capital, fossil_fuel, energy_price, params)
-        demand = capital + (nvmp / (params['eta'] * params['phi']))
-        assert demand > 0, "Non-renewable energy sector capital demand of {} is not positive!".format(demand)
-        return demand
-
-    @staticmethod
-    def fossil_fuel_demand(capital, energy_price, params):
-        """Non-renewable energy sector demand for fossil fuels."""
-        relative_price = energy_price / params['fossil_fuel_price']
-        demand = (params['tfp'] * (1 - params['beta']) * relative_price)**(1 / params['beta']) * capital
-        assert demand > 0, "Non-renewable energy sector fossil fuel demand of {} is not positive!".format(demand)
-        return demand
+    def _value_marginal_product_fossil_fuel(self, capital, energy_price, fossil_fuel_price):
+        """Non-renewable sector value marginal product of capital."""
+        vmp = energy_price * self._marginal_product_fossil_fuel(capital, energy_price, fossil_fuel_price)
+        return vmp
