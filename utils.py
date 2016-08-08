@@ -23,7 +23,7 @@ def generate_prices(seed=None):
     """Generate random capital price, fossil fuel price, and interest_rate."""
     seed, prng = _generate_prng(seed)
     capital_price, fossil_fuel_price = prng.lognormal(size=2)
-    avg_interest_rate = 0.05
+    avg_interest_rate = 0.09
     interest_rate = prng.lognormal(np.log(avg_interest_rate) - 0.5)
     return seed, (capital_price, fossil_fuel_price, interest_rate)
 
