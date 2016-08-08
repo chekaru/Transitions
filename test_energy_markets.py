@@ -11,24 +11,26 @@ from energy_sectors import NonRenewableEnergySector, RenewableEnergySector
 import utils
 
 # define energy sectors, consumers, and market as globals
-RENEWABLE_SECTOR_PARAMS = utils._generate_renewable_sector_params()
+RENEWABLE_SEED, RENEWABLE_SECTOR_PARAMS = utils.generate_renewable_sector_params()
 RENEWABLE_SECTOR = RenewableEnergySector(**RENEWABLE_SECTOR_PARAMS)
 
-NON_RENEWABLE_SECTOR_PARAMS = utils._generate_non_renewable_sector_params(RENEWABLE_SECTOR_PARAMS)
+NON_RENEWABLE_SEED, NON_RENEWABLE_SECTOR_PARAMS = utils.generate_non_renewable_sector_params(RENEWABLE_SECTOR_PARAMS)
 NON_RENEWABLE_SECTOR= NonRenewableEnergySector(**NON_RENEWABLE_SECTOR_PARAMS)
 
-CONSUMER = EnergyConsumer(quantity_demand=1.0)
+CONSUMER_SEED, CONSUMER_PARAMS = utils.generate_consumer_params()
+CONSUMER = EnergyConsumer(**CONSUMER_PARAMS)
 
 ENERGY_MARKET = WholesaleEnergyMarket(CONSUMER, NON_RENEWABLE_SECTOR, RENEWABLE_SECTOR)
 
 # specify exogenous prices as global variables
-CAPITAL_PRICE, FOSSIL_FUEL_PRICE, INTEREST_RATE = 1.0, 1.0, 0.05
+PRICES_SEED, PRICES = utils.generate_prices()
+CAPITAL_PRICE, FOSSIL_FUEL_PRICE, INTEREST_RATE = PRICES
 
 
 def test_wholesale_market_price():
     """Compare the computed wholesale market price with the analytic solution."""
     prices = (CAPITAL_PRICE, FOSSIL_FUEL_PRICE, INTEREST_RATE)
-    capital = 10
+    capital = 10  # this should be cleverly chosen!
     analytic_result = _energy_market_price(capital, ENERGY_MARKET, *prices)
     numeric_result = ENERGY_MARKET.find_market_price(capital, *prices)
     abs_error = abs(analytic_result - numeric_result)
@@ -47,7 +49,3 @@ def _energy_market_price(capital, energy_market, capital_price, fossil_fuel_pric
                    tfp_R**(1 / (1 - alpha)) * (((1 + mu_R) / capital_price) * (1 / (interest_rate + delta_R)))**(alpha / (1 - alpha)))
     price = (1 / alpha) * (quantity_demand / denominator)**((1 - alpha) / alpha)
     return price
-
-
-if __name__ == '__main__':
-    test_wholesale_market_price()

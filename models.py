@@ -5,7 +5,7 @@ from scipy import integrate, optimize
 
 class TransitionDynamicsModel:
 
-    def __init__(self, p0, energy_market, capital_price, fossil_fuel_price, interest_rate):
+    def __init__(self, energy_market, capital_price, fossil_fuel_price, interest_rate):
         self._energy_market = energy_market
 
         self._capital_price = capital_price
@@ -115,7 +115,7 @@ class TransitionDynamicsModel:
         return fig
 
     def q_dot_locus(self, q):
-        min_capital, max_capital = 1e-12, 1e7  # if max capital is too large, then this might fail!
+        min_capital, max_capital = 1e-12, 1e12
         locus = lambda capital: self._q_dot(q, capital, self._compute_energy_price(capital))
         equilibrium_capital = optimize.brentq(locus, min_capital, max_capital)
         return equilibrium_capital
