@@ -39,6 +39,7 @@ def test_equilibrium_capital():
 
 
 def _equilibrium_capital(energy_market, capital_price, fossil_fuel_price, interest_rate):
+    """Equilibrium value of non-renewable sector capital stock."""
     alpha = energy_market.renewable_sector._alpha
     delta_R = energy_market.renewable_sector._delta
     mu_R = energy_market.renewable_sector._mu
@@ -46,15 +47,16 @@ def _equilibrium_capital(energy_market, capital_price, fossil_fuel_price, intere
     tfp_NR = energy_market.non_renewable_sector._tfp
     quantity_demand = energy_market.consumer._quantity_demand
     energy_price = _equilibrium_energy_price(energy_market, capital_price, fossil_fuel_price, interest_rate)
-    relative_price_1 = energy_price / fossil_fuel_price
     relative_price_2 = fossil_fuel_price / capital_price
-    capital = ((quantity_demand / (tfp_NR**(1 / (1 - alpha)) * (alpha * relative_price_1)**(alpha / (1 - alpha)))) -
-               (tfp_R / tfp_NR)**(1 / (1 - alpha)) * (relative_price_2 * ((1 + mu_R) / (interest_rate + delta_R)))**(alpha / (1 - alpha)) )
+    output_R = tfp_R**(1 / (1 - alpha)) * (alpha * (energy_price / capital_price) * ((1 + mu_R) / (interest_rate + delta_R)))**(alpha / (1 - alpha))
+    energy_shortfall = quantity_demand - output_R
+    marginal_product_capital = tfp_NR**(1 / (1 - alpha)) * (alpha * (energy_price / fossil_fuel_price))**(alpha / (1 - alpha))
+    capital = energy_shortfall / marginal_product_capital
     return capital
 
 
 def _equilibrium_energy_price(energy_market, capital_price, fossil_fuel_price, interest_rate):
-    """Equilibrium wholesale market price of energy."""
+    """Equilibrium value of wholesale market price of energy."""
     alpha = energy_market.renewable_sector._alpha
     delta_NR = energy_market.non_renewable_sector._delta
     phi = energy_market.non_renewable_sector._phi
