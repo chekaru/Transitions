@@ -18,9 +18,8 @@ before_install:
   - conda update --yes conda
 
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy pytest pytest-cov
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION matplotlib numpy scipy pytest pytest-cov
   - pip install coveralls
-
 
 script:
   - py.test test_energy_markets.py test_model_equilibrium.py
