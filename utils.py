@@ -31,7 +31,7 @@ def generate_prices(seed=None):
 def generate_renewable_sector_params(seed=None):
     """Generate random parameters for a RenewableEnergySector."""
     seed, prng = _generate_prng(seed)
-    alpha = prng.rand()
+    alpha = prng.beta(2, 4)  # puts 0 < alpha < 1 with average of 0.33
     delta, mu, tfp = prng.lognormal(size=3)
     params = {'alpha': alpha, 'delta': delta, 'tfp': tfp, 'mu': mu}
     return seed, params
