@@ -33,8 +33,8 @@ def test_wholesale_market_price():
     capital = 10  # this should be cleverly chosen!
     analytic_result = _energy_market_price(capital, ENERGY_MARKET, *prices)
     numeric_result = ENERGY_MARKET.find_market_price(capital, *prices)
-    abs_error = abs(analytic_result - numeric_result)
-    assert abs_error <= 1e-12
+    rel_error = abs(analytic_result - numeric_result) / analytic_result
+    assert rel_error <= 1e-12
 
 
 def _energy_market_price(capital, energy_market, capital_price, fossil_fuel_price, interest_rate):
