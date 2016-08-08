@@ -12,7 +12,7 @@ class WholesaleEnergyMarket:
         """Use root finding algorithm to determine the market price."""
         args = (capital, capital_price, fossil_fuel_price, interest_rate)
         price, results = optimize.brentq(self._excess_demand, 1e-12, 1e12, args,
-                                         full_output=True)
+                                         full_output=True, xtol=1e-15)
         if results.converged:
             return price
         else:
