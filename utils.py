@@ -13,7 +13,9 @@ def generate_non_renewable_sector_params(renewable_params, seed=None):
     """Generate random parameters for a RenewableEnergySector."""
     seed, prng = _generate_prng(seed)
     alpha = 1 - renewable_params['alpha']
-    delta, phi, tfp = prng.lognormal(size=3)
+    phi, tfp = prng.lognormal(size=2)
+    avg_depreciation_rate = 0.025
+    delta = prng.lognormal(np.log(avg_depreciation_rate) - 0.5)
     params = {'tfp': tfp, 'alpha': alpha, 'beta': 1 - alpha, 'delta': delta,
               'phi': phi, 'gamma': 1, 'sigma': 1}
     return seed, params
@@ -31,7 +33,7 @@ def generate_prices(seed=None):
 def generate_renewable_sector_params(seed=None):
     """Generate random parameters for a RenewableEnergySector."""
     seed, prng = _generate_prng(seed)
-    alpha = prng.beta(2, 4)  # puts 0 < alpha < 1 with average of 0.33
+    alpha = prng.beta(2, 4)  # imposes 0 < alpha < 1 with average of 0.33
     delta, mu, tfp = prng.lognormal(size=3)
     params = {'alpha': alpha, 'delta': delta, 'tfp': tfp, 'mu': mu}
     return seed, params
