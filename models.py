@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy import integrate, optimize
+from scipy import optimize
 
 
 class TransitionDynamicsModel:
@@ -115,42 +115,19 @@ class TransitionDynamicsModel:
         return fig
 
     def q_dot_locus(self, q):
-        min_capital, max_capital = 1e-12, 1e12
+        min_capital, max_capital = 1e-12, 1e6
         locus = lambda capital: self._q_dot(q, capital, self._compute_energy_price(capital))
         equilibrium_capital = optimize.brentq(locus, min_capital, max_capital)
         return equilibrium_capital
 
-    def solve(self, t0, K0, dt, integrator, **solver_kwargs):
-        return self._solve_reverse_shooting(t0, K0, dt, integrator, **solver_kwargs)
-
-    def _compute_non_renewable_sector_costs(self, q, capital, energy_price):
-        prices = (self._capital_price, energy_price, self._fossil_fuel_price)
-        return self._energy_market.non_renewable_sector.costs(q, capital, *prices)
-
-    def _compute_renewable_sector_costs(self, energy_price, energy_price_growth):
-        prices = (self._capital_price, energy_price, energy_price_growth, self._interest_rate)
-        return self._energy_market.renewable_sector.costs(*prices)
+    def rhs(self, t, q, capital):
+        energy_price = self._compute_energy_price(capital)
+        return [self._q_dot(q, capital, energy_price), self._capital_dot(q, capital)]
 
     def _compute_energy_price(self, capital):
         """Can this be vectorized?"""
         prices = (self._capital_price, self._fossil_fuel_price, self._interest_rate)
         return self._energy_market.find_market_price(capital, *prices)
-
-    def _compute_non_renewable_sector_output(self, capital, energy_price):
-        prices = (energy_price, self._fossil_fuel_price)
-        return self._energy_market.non_renewable_sector.output(capital, *prices)
-
-    def _compute_renewable_sector_output(self, energy_price):
-        prices = (self._capital_price, energy_price, self._interest_rate)
-        return self._energy_market.renewable_sector.output(*prices)
-
-    def _compute_non_renewable_sector_profits(self, q, capital, energy_price):
-        prices = (self._capital_price, energy_price, self._fossil_fuel_price)
-        return self._energy_market.non_renewable_sector.profits(q, capital, *prices)
-
-    def _compute_renewable_sector_profits(self, energy_price, energy_price_growth):
-        prices = (self._capital_price, energy_price, energy_price_growth, self._interest_rate)
-        return self._energy_market.renewable_sector.profits(*prices)
 
     def _capital_dot(self, q, capital):
         return self._energy_market.non_renewable_sector.equation_motion_capital(q, capital)
@@ -158,38 +135,3 @@ class TransitionDynamicsModel:
     def _q_dot(self, q, capital, energy_price):
         prices = (self._capital_price, energy_price, self._fossil_fuel_price, self._interest_rate)
         return self._energy_market.non_renewable_sector.equation_motion_q(q, capital, *prices)
-
-    def _rhs(self, t, q, capital):
-        energy_price = self._compute_energy_price(capital)
-        return [self._q_dot(q, capital, energy_price), self._capital_dot(q, capital)]
-
-    def _solve_reverse_shooting(self, t0, K0, dt, integrator, **solver_kwargs):
-
-        # compute initial step size
-        eps = 1e-15
-        step = np.array([0, -eps]) if K0 <= self.equilibrium[1] else np.array([0, eps])
-        initial_condition = (1 + step) * self.equilibrium
-
-        # set up the integrator
-        f = lambda t, X: -1 * np.array(self._rhs(t, X[0], X[1]))
-        _ode = integrate.ode(f)
-        _ode.set_integrator(integrator, **solver_kwargs)
-        _ode.set_initial_value(initial_condition, t0)
-
-        ts = np.array([t0])
-        solution = initial_condition
-
-        if K0 <= self.equilibrium[1]:
-
-            while _ode.successful() and _ode.y[1] >= K0:
-                ts = np.append(ts, _ode.t+dt)
-                _ode.integrate(_ode.t+dt)
-                solution = np.vstack((solution, _ode.y))
-        else:
-
-            while _ode.successful() and _ode.y[1] <= K0:
-                ts = np.append(ts, _ode.t+dt)
-                _ode.integrate(_ode.t+dt)
-                solution = np.vstack((solution, _ode.y))
-
-        return ts, solution[::-1, :]
