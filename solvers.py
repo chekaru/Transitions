@@ -35,6 +35,7 @@ class ReverseShootingSolver:
                 _ode.integrate(_ode.t+dt)
                 solution = np.vstack((solution, _ode.y))
 
+        # ordering is important!
         trajectory = np.hstack((ts[:, np.newaxis], solution[::-1, :]))
         trajectory = self._compute_energy_prices(trajectory)
         trajectory = self._compute_non_renewable_sector_output(trajectory)
@@ -60,7 +61,8 @@ class ReverseShootingSolver:
         for i, (q, capital, energy_price) in enumerate(trajectory[:, 1:4]):
             prices = (self._model._capital_price, energy_price, self._model._fossil_fuel_price)
             costs[i] = self._model._energy_market.non_renewable_sector.costs(q, capital, *prices)
-        return np.hstack((trajectory, costs))
+        non_renewable_output = trajectory[:, [4]]
+        return np.hstack((trajectory, costs / non_renewable_output))
 
     def _compute_renewable_sector_costs(self, trajectory):
         costs = np.empty((trajectory.shape[0], 1))
@@ -69,7 +71,8 @@ class ReverseShootingSolver:
         for i, (price, growth_rate) in enumerate(zip(prices, growth_rates)):
             prices = (self._model._capital_price, price, growth_rate, self._model._interest_rate)
             costs[i] = self._model._energy_market.renewable_sector.costs(*prices)
-        return np.hstack((trajectory, costs))
+        renewable_output = trajectory[:, [5]]
+        return np.hstack((trajectory, costs / renewable_output))
 
     def _compute_non_renewable_sector_output(self, trajectory):
         energy = np.empty((trajectory.shape[0], 1))
@@ -87,11 +90,13 @@ class ReverseShootingSolver:
         return np.hstack((trajectory, energy))
 
     def _compute_non_renewable_sector_profits(self, trajectory):
+        """Compute profits per unit energy output."""
         profits = np.empty((trajectory.shape[0], 1))
         for i, (q, capital, energy_price) in enumerate(trajectory[:, 1:4]):
             prices = (self._model._capital_price, energy_price, self._model._fossil_fuel_price)
             profits[i] = self._model._energy_market.non_renewable_sector.profits(q, capital, *prices)
-        return np.hstack((trajectory, profits))
+        non_renewable_output = trajectory[:, [4]]
+        return np.hstack((trajectory, profits / non_renewable_output))
 
     def _compute_renewable_sector_profits(self, trajectory):
         profits = np.empty((trajectory.shape[0], 1))
@@ -100,7 +105,8 @@ class ReverseShootingSolver:
         for i, (price, growth_rate) in enumerate(zip(prices, growth_rates)):
             prices = (self._model._capital_price, price, growth_rate, self._model._interest_rate)
             profits[i] = self._model._energy_market.renewable_sector.profits(*prices)
-        return np.hstack((trajectory, profits))
+        renewable_output = trajectory[:, [5]]
+        return np.hstack((trajectory, profits / renewable_output))
 
     def _rhs(self, t, X):
         """Wrapper for the RHS of the model so it confirms with integrate.ode API."""
